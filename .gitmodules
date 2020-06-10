@@ -1,0 +1,6 @@
+[submodule "SummerResearch2020/SpikeInterface/spikeinterface"]
+	path = SummerResearch2020/SpikeInterface/spikeinterface
+	url = https://github.com/SpikeInterface/spikeextractors.git
+[submodule "spikeinterface"]
+	path = spikeinterface
+	url = https://github.com/SpikeInterface/spikeinterface
