@@ -4,3 +4,6 @@
 [submodule "spikeinterface"]
 	path = spikeinterface
 	url = https://github.com/SpikeInterface/spikeinterface
+[submodule "spikeForest"]
+	path = spikeForest
+	url = https://github.com/flatironinstitute/spike-front
