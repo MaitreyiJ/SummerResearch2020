@@ -7,3 +7,9 @@
 [submodule "spikeForest"]
 	path = spikeForest
 	url = https://github.com/flatironinstitute/spike-front
+[submodule "spikeforest2"]
+	path = spikeforest2
+	url = https://github.com/flatironinstitute/spikeforest2
+[submodule "spikeForestTool"]
+	path = spikeForestTool
+	url = https://github.com/flatironinstitute/spikeforest2
