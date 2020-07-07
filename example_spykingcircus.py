@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 from spikeforest2 import sorters
 from spikeforest2 import processing
 import hither_sf as hither
@@ -7,29 +5,100 @@ import kachery as ka
 import json
 import numpy as np
 from spikeinterface import widgets as sw
+
 from typing import List, Union, Dict
 from spikeforest2_utils import AutoRecordingExtractor, AutoSortingExtractor
+from spikeforest2_utils.autoextractors.mdaextractors.mdaextractors import MdaRecordingExtractor
 import spikeinterface.comparison as sc
+import spikeinterface.sorters as ss
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
-
-
-
-
 from scipy.signal import butter, lfilter
-
-
-
 import spikeinterface.toolkit as st
+import spikeinterface.extractors as se
+from spikeforest2_utils import writemda32
+from sklearn.neighbors import NearestNeighbors
+from sklearn.cross_decomposition import PLSRegression
+from mpl_toolkits import mplot3d
+import spikeforest_widgets as sw2
+
+#so we are done with the pipeline, now we need to compare this algorithm to ground truth
+#We will be comparing the features of each of our waveforms(waveform) with the mean_cluster forms
+#for spike classification
+#time = np.linspace(0, wave_form.shape[1]/sampleRate, wave_form.shape[1])*1000
+#cluster_mean = wave_form[cluster==0, :].mean(axis=0)
+
+#Adding the code for comparision of spike sorting data with sorting extractor
+from scipy.io import loadmat
+x = loadmat('resultfile.mat')
+sortingPipeline = se.NumpySortingExtractor()
+labels=x['idx']
+times_reference=x['spike_min_idxs']
+Fs=x['Fs']
+timeseries=x['mcs_data']
+geometry=x['geom']
+
+x2 = loadmat('script(2)_idxs.mat')
+labels2=x2['idx']
+x2r=loadmat('script(2)_minidxs.mat')
+times_reference2=x2r['spike_min_idxs']
+
+x3 = loadmat('script(3)_idxs.mat')
+labels3=x3['idx']
+x3r=loadmat('script(3)_minidxs.mat')
+times_reference3=x3r['spike_min_idxs']
+
+
+
+
+
+#concatenating the data 
+times_reference_joined=np.concatenate((times_reference[0], times_reference2[0],times_reference3[0]))
+
+labels_joined=np.concatenate((labels, labels2,labels3), axis=0)
+
+
+print(times_reference_joined.shape)
+print(labels_joined.shape)
+
+
+sortingPipeline.set_times_labels(times=times_reference_joined, labels=labels_joined)
+
+sortingPipeline.set_sampling_frequency(sampling_frequency=Fs)
+
+
+
+
+
+
+
+
+
+print('Unit ids = {}'.format(sortingPipeline.get_unit_ids()))
+st = sortingPipeline.get_unit_spike_train(unit_id=1)
+print('Num. events for unit 1 = {}'.format(len(st)))
+st1 = sortingPipeline.get_unit_spike_train(unit_id=1)
+print('Num. events for first second of unit 1 = {}'.format(len(st1)))
+w_rs_gt = sw.plot_rasters(sortingPipeline,sampling_frequency=Fs)
+
+plt.show()
+
+
+
+
+
+
+
+
+
 
 
 #Correctly loading the recordings-loading the json file
 
 import os
 script_dir = os.path.dirname(__file__)
-file_path = os.path.join(script_dir, '/Users/Maitreyi/CareerDevelopmentoversumeer/SummerResearch2020/spikeforest2/spikeforest_recordings/recordings/SYNTH_MEAREC_TETRODE/synth_mearec_tetrode_noise10_K10_C4/synth_mearec_tetrode_noise10_K10_C4.json')
+file_path = os.path.join(script_dir, '/home/maitreyi/spikeforest_recordings/recordings/SYNTH_MEAREC_TETRODE/synth_mearec_tetrode_noise10_K10_C4/synth_mearec_tetrode_noise10_K10_C4.json')
 with open(file_path, 'r') as fi:
     spec = json.load(fi)
 
@@ -85,144 +154,134 @@ w_ts.ax.set_ylabel("Channel_ids")
 
 #We will also try to plot the rastor plot for the ground truth
 gtOutput=AutoSortingExtractor(sortingPath)
+#We need to change the indices of  the ground truth output 
 w_rs_gt = sw.plot_rasters(gtOutput,sampling_frequency=sampleRate)
 
-#Also the unit spikes for ground truth
-w_wf_gt = sw.plot_unit_waveforms(recordingInput,gtOutput, max_spikes_per_unit=100)
+#Splitting up the data 
+
+recordingSplit = se.NumpyRecordingExtractor(timeseries=timeseries, geom=geometry, sampling_frequency=Fs)
 
 
-# Summarize recordings
-recordingZero['results']['computed-info'] = processing.compute_recording_info.run(
-                _label=f'compute-recording-info:{recordingZero["studyName"]}/{recordingZero["name"]}',
-                recording_path=recordingPath,
-                json_out=hither.File()
-            )
-recordingZero['results']['true-units-info'] = processing.compute_units_info.run(
-                _label=f'compute-units-info:{recordingZero["studyName"]}/{recordingZero["name"]}',
-                recording_path=recordingPath,
-                sorting_path=sortingPath,
-                json_out=hither.File()
-            )
+
+
+
+
+
 
 
 #Spike-Sorting
+#trying to run MS4 through spike interface
+#sorting_MS4 = ss.run_tridesclous(recordingSplit, output_folder='tmp_MS4')
 
 
+
+#spykingcircus
 with ka.config(fr='default_readonly'):
     #with hither.config(cache='default_readwrite'):
         with hither.config(container='default'):
-            sorting_result = sorters.spykingcircus.run(
-                _label=f'algorithm:{recordingZero["studyName"]}/{recordingZero["name"]}',
+            result_spyKingCircus = sorters.spykingcircus.run(
                 recording_path=recordingPath,
                 sorting_out=hither.File()
             )
 
 
-recordingZero['results']['sorting-SpyKigCircus'] = sorting_result
-recordingZero['results']['comparison-with-truth-spyKingCircus']= processing.compare_with_truth.run(
-                        _label=f'comparison-with-truth -algorithm:{recordingZero["studyName"]}/{recordingZero["name"]}',
-                        sorting_path=sorting_result.outputs.sorting_out,
-                        sorting_true_path=sortingPath,
-                        json_out=hither.File()
-                    )
-recordingZero['results']['units-info-spyKingCircus'] = processing.compute_units_info.run(
-                        _label=f'units-info-algorithm:{recordingZero["studyName"]}/{recordingZero["name"]}',
-                        recording_path=recordingPath,
-                        sorting_path=sorting_result.outputs.sorting_out,
-                        json_out=hither.File()
-                        
-                    )
-
-
-#Trying to slot in our algorithm for benchmarking
-#Threshold application and spike detection
-
-
-#Step 1-Filtering the data
+#Mountainsort
+with ka.config(fr='default_readonly'):
+    #with hither.config(cache='default_readwrite'):
+        with hither.config(container='default'):
+            result_MS4 = sorters.spykingcircus.run(
+                recording_path=recordingPath,
+                sorting_out=hither.File()
+            )
 
 
 
+#Aggregating the output of the sorters
+sorting_MS4=AutoSortingExtractor(result_MS4.outputs.sorting_out._path)
+sorting_SP=AutoSortingExtractor(result_spyKingCircus.outputs.sorting_out._path)
+
+#Comparing to ground truth-confusion matrix 
+comp_MATLAB = sc.compare_sorter_to_ground_truth(gtOutput, sorting_MS4,sampling_frequency=sampleRate,delta_time=10,match_score=0.5,chance_score=0.1,well_detected_score=0.1,exhaustive_gt=True)
+w_comp_MATLAB = sw.plot_confusion_matrix(comp_MATLAB, count_text=True)
+plt.show()
+
+comp_MS4 = sc.compare_sorter_to_ground_truth(gtOutput, sorting_SP,sampling_frequency=sampleRate,delta_time=10,match_score=0.5,chance_score=0.1,well_detected_score=0.1,exhaustive_gt=True)
+w_comp_MS4 = sw.plot_confusion_matrix(comp_MS4, count_text=True)
+plt.show()
+
+
+comp_SP = sc.compare_sorter_to_ground_truth(gtOutput, sorting_SP,sampling_frequency=sampleRate,delta_time=10,match_score=0.5,chance_score=0.1,well_detected_score=0.1,exhaustive_gt=True)
+w_comp_SP = sw.plot_confusion_matrix(comp_SP, count_text=True)
+plt.show()
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#Processing the results for someting meaningful-Rastor Plots
-
-sortingOutput = AutoSortingExtractor(sorting_result.outputs.sorting_out._path)#So now we successfully got the object
-w_rs = sw.plot_rasters(sortingOutput,sampling_frequency=sampleRate)
-
-
-
-
-
-
-#Unit waveforms-of spike sorting results 
-w_wf = sw.plot_unit_waveforms(recordingInput, sortingOutput, max_spikes_per_unit=100)
-
-
-   
-   
-#Assembling all the results
-print('')
-print('=======================================================')
-print('Assembling results...')
-print(f'Assembling recording: {recordingZero["studyName"]}/{recordingZero["name"]}')
-recordingZero['summary'] = dict(
-            plots=dict(),
-            computed_info=ka.load_object(recordingZero['results']['computed-info'].outputs.json_out._path),
-            true_units_info=ka.store_file(recordingZero['results']['true-units-info'].outputs.json_out._path)
-        )
-
-
-#This is using spike forest comaprision tools
-print(f'Assembling sorting: SpyKingCircus {recordingZero["studyName"]}/{recordingZero["name"]}')
-sorting_result = recordingZero['results']['sorting-SpyKigCircus']
-comparison_result = recordingZero['results']['comparison-with-truth-spyKingCircus']
-units_info_result = recordingZero['results']['units-info-spyKingCircus']
-
-
-#Unable to convert the spike forest comparsion 
-
-#Directly using the spike interface comparision widgets-plotting the confusion matrix
-comp_spyKingCircus = sc.compare_sorter_to_ground_truth(gtOutput, sortingOutput,sampling_frequency=sampleRate,exhaustive_gt=True)
-w_comp_spyKingCircus = sw.plot_confusion_matrix(comp_spyKingCircus, count_text=False)
-
-
-
-######
 #Computing some metrics for benchmarking-agreement matrix
-sw.plot_agreement_matrix(comp_spyKingCircus, ordered=True)
-perf_spyKingCircus = comp_spyKingCircus.get_performance()
-print(perf_spyKingCircus)
+sw.plot_agreement_matrix(comp_MATLAB, ordered=True,count_text=True)
+perf_MATLAB = comp_MATLAB.get_performance()
+plt.show()
+print(perf_MATLAB)
+
+#comparing the sorting algos
+#We will try to compare all the three sorters
+mcmp=sc.compare_multiple_sorters(sorting_list=[sortingPipeline,sorting_MS4,sorting_SP],
+                               name_list=['Our','MS4','SP'],verbose=True)
+                                 
+sw.plot_multicomp_graph(mcmp)
+plt.show()
+
+
+#Pairwise
+
+cmp_MS4_Our=sc.compare_two_sorters(sorting1=sorting_MS4,sorting2=sortingPipeline,sorting1_name='MS4',sorting2_name='Our')
+sw.plot_agreement_matrix(cmp_MS4_Our, ordered=True)
+plt.show()
+
+
+cmp_SP_Our=sc.compare_two_sorters(sorting1=sorting_SP,sorting2=sortingPipeline,sorting1_name='SP',sorting2_name='Our')
+sw.plot_agreement_matrix(cmp_SP_Our, ordered=True)
+plt.show()
 
 
 
-#Querrying for the well detected units
-print(comp_spyKingCircus.get_well_detected_units())
-print(comp_spyKingCircus.get_false_positive_units())
 
 
 
-#Now we will be plotting quality metrics-SNR against accuracy
 
 
-snrs = st.validation.compute_snrs(gtOutput, recordingInput, save_as_property=True)
 
-w_perf = sw.plot_sorting_performance(comp_spyKingCircus, property_name='snr', metric='accuracy')
+
+
+
+
+
+
+
+
+   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
