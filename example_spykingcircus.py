@@ -189,7 +189,7 @@ with ka.config(fr='default_readonly'):
 with ka.config(fr='default_readonly'):
     #with hither.config(cache='default_readwrite'):
         with hither.config(container='default'):
-            result_MS4 = sorters.spykingcircus.run(
+            result_MS4 = sorters.mountainsort4.run(
                 recording_path=recordingPath,
                 sorting_out=hither.File()
             )
@@ -201,16 +201,16 @@ sorting_MS4=AutoSortingExtractor(result_MS4.outputs.sorting_out._path)
 sorting_SP=AutoSortingExtractor(result_spyKingCircus.outputs.sorting_out._path)
 
 #Comparing to ground truth-confusion matrix 
-comp_MATLAB = sc.compare_sorter_to_ground_truth(gtOutput, sorting_MS4,sampling_frequency=sampleRate,delta_time=10,match_score=0.5,chance_score=0.1,well_detected_score=0.1,exhaustive_gt=True)
+comp_MATLAB = sc.compare_sorter_to_ground_truth(gtOutput, sortingPipeline,sampling_frequency=sampleRate,delta_time=3,match_score=0.5,chance_score=0.1,well_detected_score=0.1,exhaustive_gt=True)
 w_comp_MATLAB = sw.plot_confusion_matrix(comp_MATLAB, count_text=True)
 plt.show()
 
-comp_MS4 = sc.compare_sorter_to_ground_truth(gtOutput, sorting_SP,sampling_frequency=sampleRate,delta_time=10,match_score=0.5,chance_score=0.1,well_detected_score=0.1,exhaustive_gt=True)
+comp_MS4 = sc.compare_sorter_to_ground_truth(gtOutput, sorting_MS4,sampling_frequency=sampleRate,delta_time=3,match_score=0.5,chance_score=0.1,well_detected_score=0.1,exhaustive_gt=True)
 w_comp_MS4 = sw.plot_confusion_matrix(comp_MS4, count_text=True)
 plt.show()
 
 
-comp_SP = sc.compare_sorter_to_ground_truth(gtOutput, sorting_SP,sampling_frequency=sampleRate,delta_time=10,match_score=0.5,chance_score=0.1,well_detected_score=0.1,exhaustive_gt=True)
+comp_SP = sc.compare_sorter_to_ground_truth(gtOutput, sorting_SP,sampling_frequency=sampleRate,delta_time=3,match_score=0.5,chance_score=0.1,well_detected_score=0.1,exhaustive_gt=True)
 w_comp_SP = sw.plot_confusion_matrix(comp_SP, count_text=True)
 plt.show()
 
@@ -234,12 +234,12 @@ plt.show()
 #Pairwise
 
 cmp_MS4_Our=sc.compare_two_sorters(sorting1=sorting_MS4,sorting2=sortingPipeline,sorting1_name='MS4',sorting2_name='Our')
-sw.plot_agreement_matrix(cmp_MS4_Our, ordered=True)
+sw.plot_agreement_matrix(cmp_MS4_Our, ordered=True,count_text=True)
 plt.show()
 
 
 cmp_SP_Our=sc.compare_two_sorters(sorting1=sorting_SP,sorting2=sortingPipeline,sorting1_name='SP',sorting2_name='Our')
-sw.plot_agreement_matrix(cmp_SP_Our, ordered=True)
+sw.plot_agreement_matrix(cmp_SP_Our, ordered=True,count_text=True)
 plt.show()
 
 
