@@ -12,7 +12,7 @@
 
 mcs_data = load('simulation_1.mat');
 mcs_data=mcs_data.data;
-mcs_data=mcs_data(1,1:35000)
+mcs_data=mcs_data(1,1:900000)
 mcs_data = mcs_data./1e-6; % convert to microvolts
     
 Fs = 24000;
@@ -179,7 +179,6 @@ if (EXTRACT_ALIGN_INDIV)
     
     
     end
-end
 
     %% Pass channel through EDM bank for feature extraction
     alphas = [3,4,5,6,7,8,9,10];
@@ -204,12 +203,173 @@ end
         imagesc(spike_edm_vectors(:,srt_idxs));
     end
     
-   
+    %% Plot different classes of spikes, based solely on threshold    
+    fig = figure(34);
+    clf(fig);     
+    subplot(2,1,1); 
+    hold on
+    plot(spike_mins(class1_idxs,:)',class1_color,'LineWidth',1);
+    plot(spike_mins(class2_idxs,:)',class2_color,'LineWidth',1);
+    plot(spike_mins(class3_idxs,:)',class3_color,'LineWidth',1);
+    axis([-inf inf min_peak max_peak]);
+    axis tight;
+%     plot([edm_sample_point edm_sample_point],[min_peak max_peak],'k')   
+    subplot(2,1,2); 
+    sorted_class_edms = [spike_edm_vectors(:,class1_idxs), spike_edm_vectors(:,class2_idxs), spike_edm_vectors(:,class3_idxs)];
+    imagesc(sorted_class_edms);    
+    
+    
+    %% Try to find the optimal EDM sampling point
+    sum_vectors_c1 = [];
+    sum_vectors_c2 = [];
+    sum_vectors_c3 = [];
+    SWEEP_OFFSETS=1;
+    if(SWEEP_OFFSETS)
+        edm_sample_point_sweep_range = -ceil(search_window/2)+1:1:ceil(search_window/2);
+        t_sec = (edm_sample_point_sweep_range/Fs)/1e-3;
+        for edm_sample_offset = edm_sample_point_sweep_range
+            fprintf('%i\n',edm_sample_offset);  
+            fig = figure(112);
+            clf(fig);
+            edm_sample_point = ceil(search_window/2)+edm_sample_offset;
+%             spike_edm_vectors_zscore = zscore(spike_edm_vectors,[],2);
+            sum_vectors_c1(edm_sample_point) = sum(sum(abs(spike_edm_vectors(:,class1_idxs))));
+            sum_vectors_c2(edm_sample_point) = sum(sum(abs(spike_edm_vectors(:,class2_idxs))));
+            sum_vectors_c3(edm_sample_point) = sum(sum(abs(spike_edm_vectors(:,class3_idxs))));
+            
+            subplot(2,1,1); 
+            hold on
+            plot(spike_mins(class1_idxs,:)',class1_color,'LineWidth',1);
+            plot(spike_mins(class2_idxs,:)',class2_color,'LineWidth',1);
+            plot(spike_mins(class3_idxs,:)',class3_color,'LineWidth',1);
+            plot(spike_mins(1,:),'k','LineWidth',2);
+            axis([-inf inf min_peak max_peak]);
+            axis tight;
+            plot([edm_sample_point edm_sample_point],[min_peak max_peak],'k')   
+            subplot(2,1,2); 
+            spike_edm_vectors = edm_output_zscore(:,spike_min_idxs+edm_sample_offset);
+            imagesc(spike_edm_vectors);
+%             pause;
+        end
+                        
+        fig = figure(116);
+        clf(fig);
+        
+        ax(1) = subplot(2,1,1);
+        hold on;
+        for j=1:length(class1_idxs) % need stupid loop to set opacity of line plot)
+            plt = plot(t_sec, spike_mins(class1_idxs(j),:)',class1_color,'LineWidth',0.5);
+            plt.Color(4) = 0.1;       
+        end
+                
+        for j=1:length(class2_idxs) % need stupid loop to set opacity of line plot)
+            plt = plot(t_sec, spike_mins(class2_idxs(j),:)',class2_color,'LineWidth',0.5);
+            plt.Color(4) = 0.1;       
+        end
+                 
+        for j=1:length(class3_idxs) % need stupid loop to set opacity of line plot)
+            plt = plot(t_sec, spike_mins(class3_idxs(j),:)',class3_color,'LineWidth',0.5);
+            plt.Color(4) = 0.1;       
+        end
+                
+        plt = plot(t_sec, mean(spike_mins(class1_idxs,:))',class1_color,'LineWidth',2);
+        plt = plot(t_sec, mean(spike_mins(class2_idxs,:))',class2_color,'LineWidth',2);  
+        plt = plot(t_sec, mean(spike_mins(class3_idxs,:))',class3_color,'LineWidth',2);           
+        
+        align_point = ceil(search_window/2);
+        align_point = (align_point/Fs)/1e-3;
+        plot([align_point align_point],[min_peak max_peak],'k') 
+        axis tight
+        
+        ax(2) = subplot(2,1,2); 
+        norm_response_c1 = sum_vectors_c1/max(sum_vectors_c1);
+        norm_response_c2 = sum_vectors_c2/max(sum_vectors_c2);
+        norm_response_c3 = sum_vectors_c3/max(sum_vectors_c3);
+        sum_resp = (norm_response_c1 + norm_response_c2 + norm_response_c3);
+        norm_resp = sum_resp/max(sum_resp);
+        [max_norm, optimal_edm_sample_point] = max(norm_resp);
+        fprintf('Optimal EDM Sampling point: %i\n',optimal_edm_sample_point); 
+        
+        % Plot optimal edm point sweep graph
+        hold on;
+        plt = plot(t_sec, norm_response_c1,class1_color,'LineWidth',1.5);
+        plt.Color(4) = 0.4; 
+        plt = plot(t_sec, norm_response_c2,class2_color,'LineWidth',1.5);
+        plt.Color(4) = 0.4; 
+        plt = plot(t_sec, norm_response_c3,class3_color,'LineWidth',1.5);
+        plt.Color(4) = 0.4; 
+        plt = plot((edm_sample_point_sweep_range/Fs)/1e-3 , norm_resp,'k','LineWidth',2);
+        plt.Color(4) = 0.7;
+        plot([t_sec(optimal_edm_sample_point) t_sec(optimal_edm_sample_point)],[0 1],'-k')  
+        linkaxes(ax,'x');
+        axis([-1 1 0 1.05]);
+        title('Sampling Point vs. Normalized EDM Bank Variance');
+        xlabel('Sampling Point (Relative to Spike Min)')
+        ylabel('Normalized EDM Bank Variance')
+    end
+    
+    %% Go through all features to see if any pop out as informative to sort by
+    edm_sample_point = (search_window/2)+edm_sample_offset;
+    
+    PLOT_SORTED_BY_FEATURES = 0;
+    if (PLOT_SORTED_BY_FEATURES)
+        for sort_dimension = 1:n_features %1:n_features % n_alphas
+            % Sort EDMs by 1 dimension
+            fprintf('%i\n',sort_dimension);  
+            [remap,srt_idxs] = sort(spike_edm_vectors(sort_dimension,:));
+            spike_edm_vectors_sorted=spike_edm_vectors(:,srt_idxs);
+
+            c = ismember(srt_idxs, class1_idxs);
+            class1_idxs_remap = find(c);
+
+            c = ismember(srt_idxs, class2_idxs);
+            class2_idxs_remap = find(c);
+
+            % Plot 
+            fig = figure(31);
+            clf(fig);     
+            subplot(2,1,1);
+            plt3 = plot(spike_mins',class2_color);
+    %         plt4.Color(4) = 0.3;axis([-inf edm_sample_point min_peak max_peak]); 
+            hold on;
+%             axis([-inf edm_sample_point min_peak max_peak]); 
+            for j=1:1:10
+                plt1 = plot(spike_mins(srt_idxs(j),:),class3_color,'LineWidth',4);
+                plt1.Color(4) = 1/j;
+                plt2 = plot(spike_mins(srt_idxs(end-j+1),:),class1_color,'LineWidth',4);
+                plt2.Color(4) = 1/j;
+            end
+            plot([edm_sample_point edm_sample_point],[min_peak max_peak],'k')    
+    %         subplot(3,1,2);
+    %         plot(spike_maxs');
+    %         hold on;
+    %         plot(spike_maxs(srt_idxs(1),:),class1_color,'LineWidth',4);
+    %         plot(spike_maxs(srt_idxs(end),:),class3_color,'LineWidth',4); 
+    %         axis([-inf inf min_peak max_peak]);
+        %     plot([edm_sample_point edm_sample_point],[min_peak max_peak],'k')    
+            subplot(2,1,2);
+            imagesc(spike_edm_vectors_sorted);   
+            hold on;
+
+            for i=1:length(class1_idxs_remap)
+                plot([class1_idxs_remap(i) class1_idxs_remap(i)],[0 n_features],class1_color)  
+            end
+
+            pause;
+        end
+    end
+    
+%     for j = 1:1:430
+%         subplot(3,1,2);    
+%         plot(spike_maxs(index(j),:),class3_color,'LineWidth',2);
+%         fprintf('%i\n',j);
+%         pause
+%     end
     
 
     
     %% Train Autoencoder    
-    hiddenSize = 2;
+    hiddenSize = 16;
     tic;
     autoenc = trainAutoencoder(spike_edm_vectors,hiddenSize,...
         'EncoderTransferFunction','logsig',...
@@ -240,9 +400,11 @@ end
     
     tic;
     spike_edm_vectors_dec = decode(autoenc,spike_edm_vectors_enc);
-    toc;    
-
-  
+    toc;   
+    %Unit id to color association 
+    colors=[1 0 0; 0 1 0	; 0 0 1 ; 0.3 0.2 0.1; 1 1 0; 1 0 1	; 0 1 1	;  0.0588    1.0000    1.0000	; 0 0 0; 0 0.4470 0.7410;  0.8500 0.3250 0.0980 ; 0.9290 0.6940 0.1250; 0.4940 0.1840 0.5560 ; 0.4660 0.6740 0.1880;0.3010 0.7450 0.9330;0.6350 0.0780 0.1840];
+  %trying to plot in different RGB colors
+     
     % Plot autoenc output
 %     fig = figure(27);
 %     clf(fig);     
@@ -257,67 +419,172 @@ end
 %                 spike_edm_vectors_enc(2,class1_idxs),...
 %                 spike_edm_vectors_enc(3,class1_idxs),class1_color);
 %     axis tight;
+    %% Plot
+    fig = figure(29);
+    clf(fig);     
+    subplot(4,1,1);
+    imagesc(sorted_class_edms);     
+    title('Autoencoder Input');
+    subplot(4,1,4);
+    imagesc(decode(autoenc,encode(autoenc,sorted_class_edms)));
+    title('Reconstructed Output');
+%     spike_edm_vectors_sorted = flipud(spike_edm_vectors_sorted)    
+
+    subplot(4,1,2);
+    cla();
+    hold on;
     
-    %% Run K-Means
-    k=n_features;
+    scatter(spike_edm_vectors_enc(1,class1_idxs),spike_edm_vectors_enc(2,class1_idxs),class1_color);
+    scatter(spike_edm_vectors_enc(1,class2_idxs),spike_edm_vectors_enc(2,class2_idxs),class2_color);
+    scatter(spike_edm_vectors_enc(1,class3_idxs),spike_edm_vectors_enc(2,class3_idxs),class3_color);
+
+    subplot(4,1,3); 
+    cla();
+    hold on;
+    plot(spike_maxs(class3_idxs,:)',class3_color,'LineWidth',1);
+    plot(spike_maxs(class1_idxs,:)',class1_color,'LineWidth',1);
+    plot(spike_maxs(class2_idxs,:)',class2_color,'LineWidth',1);
+    axis([-inf inf min_peak max_peak]);
+    title('Raw Spikes');   
+    
+    CHECK_ALL_POINTS = 0;
+    if(CHECK_ALL_POINTS)
+        for s = 25:30;
+            subplot(4,1,2);
+            cla();
+            hold on;
+            scatter(spike_edm_vectors_enc(1,class1_idxs),spike_edm_vectors_enc(2,class1_idxs),class1_color);
+            scatter(spike_edm_vectors_enc(1,class2_idxs),spike_edm_vectors_enc(2,class2_idxs),class2_color);
+            scatter(spike_edm_vectors_enc(1,class3_idxs),spike_edm_vectors_enc(2,class3_idxs),class3_color);
+            scatter(spike_edm_vectors_enc(1,s),spike_edm_vectors_enc(2,s),'k');
+            title('Autoencoder Hidden Units');
+
+            subplot(4,1,3); 
+            cla();
+            hold on
+            plot(spike_maxs(class1_idxs,:)',class1_color,'LineWidth',1);
+            plot(spike_maxs(class2_idxs,:)',class2_color,'LineWidth',1);
+            plot(spike_maxs(class3_idxs,:)',class3_color,'LineWidth',1);
+            plot(spike_maxs(s,:),'k','LineWidth',2);
+            axis([-inf inf min_peak max_peak]);
+            title('Raw Spikes');
+
+            fprintf('%i\n',s);
+            pause        
+        end
+
+    end
+   
+
+    
+    %% Run K-Means/DB scan
+    k=16;
     X=spike_edm_vectors_enc';
 %     rng(1);
     [idx,C] = kmeans(X,k);
 %     idx = kmeans(spike_edm_vectors_enc,k);
-    %idx now has 16 classes as per ground truth !!!!
-    %plotting the spikes with their ids and ground truth 
-     
-    %Unit id to color association 
-    colors=[1 0 0; 0 1 0	; 0 0 1 ; 0.3 0.2 0.1; 1 1 0; 1 0 1	; 0 1 1	; 1 1 1	; 0 0 0; 0 0.4470 0.7410;  0.8500 0.3250 0.0980 ; 0.9290 0.6940 0.1250; 0.4940 0.1840 0.5560 ; 0.4660 0.6740 0.1880;0.3010 0.7450 0.9330;0.6350 0.0780 0.1840];
     
 
+    fig = figure(40);
+    clf(fig);    
+    %plot(idx);
+%     grid_min = min(X(:,1));
+%     grid_max = max(X(:,1));
     
-   
-    fig=figure(115);
-    % plotting the spikes ground truth and detected
-    plot(filt_ch_data);
-   
     hold on;
-    for j=1:length(spike_max_idxs)
-      
-         scatter(spike_min_idxs(j),1e+6,'MarkerFaceColor',colors(idx(j,1),:),'Marker','o');
-         
-         
-     end     
+        plot(C(:,1),C(:,2),'kx', 'MarkerSize',15,'LineWidth',3)  % Centroids
+
+    hold on;
+     scatter(spike_edm_vectors_enc(1,:),spike_edm_vectors_enc(2,:), 'o', 'MarkerFaceColor', class1_color,'MarkerEdgeAlpha',0); 
+     
     groundTruth=load('ground_truth.mat');
     spike_index_class=groundTruth.spike_classes;
     array_gt_class=spike_index_class(1);
     new_class=array_gt_class(1,:);
     out = cat(1,new{:});
     out_class=cat(1,new_class{:});
-    for i=1:27
-        
-        if(out_class(1,i)~=0) 
-           s=scatter(out(i),0.5e+6,'Marker','d');
-
-           s.MarkerFaceColor=colors(out_class(1,i),:);
+     
+     
+    fig =figure(45);
+    hold on;
+    for j=1:length(idx)
+        if(out_class(1,j)~=0) 
+         scatter(spike_edm_vectors_enc(1,j),spike_edm_vectors_enc(2,j), 'o', 'MarkerFaceColor', colors(idx(j,1),:),'MarkerEdgeAlpha',0);
         end
-       
+    end
+     
+     
+     
+%     
+    %% Save feature vectors to be exported to python
+%     save('../DATA/spike_edm_vectors.mat','spike_edm_vectors_sorted','-v7')
     
-    
+
+    %% Plot each spike, position in tim eseries, and corresponding EDM activity   
+%     ap_trace = zeros(length(filt_ch_data),1);   
+%     for i = 1:n_spikes
+%         spike_idx = spike_max_idxs(i);
+%         subplot(3,1,1);
+%         ap_trace(spike_idx) = ap_thresh;
+%     end
+    PLOT_EDM_VS_SPIKE_MAXS_VS_EDM = 0;
+    if (PLOT_EDM_VS_SPIKE_MAXS_VS_EDM)
+        fig = figure(21);
+        clf(fig); 
+        subplot(3,1,1);
+
+        plot(filt_ch_data,'k');
+        hold on;
+
+        edm_trace = zeros(n_samp,1);
+        edm_trace(edm_sample_idxs) = ap_thresh;
+        stairs(edm_trace, class1_color);
+
+        subplot(3,1,2);
+        plot(spike_maxs');
+        hold on;
+        axis tight;
+        subplot(3,1,3);
+        imagesc(spike_edms_zscore{end})     
     end
     
-  %attempting to plot the features of ground truth and spike edm vectors
-  fig=figure(116);
-  spike_waveforms=groundTruth.su_waveforms;
-  array_gt_waveforms=spike_waveforms(1);
-  new_waveforms=array_gt_waveforms(1,:);
-  out_waveforms=cat(1,new_waveforms{:});
-  for k=1:10
-      plot(out_waveforms(k,:))
-  end
-  
-  
-  
+    
+    %% Plot time series v.s. EDM output and sampling points
+    fig = figure(22);
+    clf(fig); 
+    ax(1) = subplot(2,1,1);
+
+    plot(filt_ch_data,'k');
+    hold on;
+    
+    edm_trace = zeros(n_samp,1);
+    %edm_trace(edm_sample_idxs) = ap_thresh;
+    stairs(edm_trace, class1_color);
+    
+    ax(2) = subplot(2,1,2);
+    imagesc(edm_output_zscore)     
+    linkaxes(ax,'x');
+    axis tight;
     
     
+    %% Plot autoencoder hidden layer representations to show clusters?
+
+        
+end
+
+
+%% Plot an individual channel
+% Perform EDM signal energy extraction for a single channel and perform PCA
+EDMSEAE = 0;
+if (EDMSEAE)
+    fig = figure(1);
+    clf(fig);
+    plot(filt_ch_data, 'k');
     
-    
-    
-    
-    
+    c_num = 10;
+    channel_data = mcs_data(c_num,:);
+    filt_ch_data = aps_filter(channel_data, Fs);
+end
+
+
+
