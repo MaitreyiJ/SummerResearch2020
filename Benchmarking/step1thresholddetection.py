@@ -19,7 +19,8 @@ from spikeforest2_utils import writemda32
 from sklearn.neighbors import NearestNeighbors
 from sklearn.cross_decomposition import PLSRegression
 from mpl_toolkits import mplot3d
-
+#CREDITS TO ORIGINAL IMLEMENTATION:
+#https://towardsdatascience.com/whos-talking-using-k-means-clustering-to-sort-neural-events-in-python-e7a8a76f316
 #Forward declaration
 
 def extract_snippets(X, *, reference_frames, snippet_len):
@@ -170,7 +171,7 @@ def k_means(data, num_clus=3, steps=200):
     return cluster, center_init, distance
 
 
-
+#A SAMPLE IMPLEMENTAION OF SPIKE SORTING PIPELINE FROM PYTHON-DISCARDED DUE TO POOR RESULTS IN BENCHMARKING-ONLY FOR UNDERSTANDING PURPOSES
 
 #Correctly loading the recordings-loading the json file
 
@@ -315,18 +316,6 @@ print(f'The size of the snippets array is = {A_snippets_reference.size}')
 print(f'Num. reference events in spnippets array = {len(A_snippets_reference)}')
 print(f'The dimensions of the  snippets array is  = {A_snippets_reference.ndim}')
 print(f'The shape of the  snippets array is  = {A_snippets_reference.shape}')
-
-
-#We will plot the extracted snippets
-
-#fig1, ax1 = plt.subplots()
-#ax1.plot(snippets_reference[0,0,:])
-#ax1.plot(snippets_reference[0,0,:])
-#plt.show()
-
-
-
-
 
 print(f'The size of the snippets array is = {snippets_reference.size}')
 print(f'Num. reference events in spnippets array = {len(snippets_reference)}')
