@@ -9,7 +9,7 @@ Following is the guide to read this repository-
 
 2.spikeInterface-contains the modules for the package spikeInterface
 
-3.Benchmarking contains the python code for benchmarking Mountain Sort, SpyKing Circus and MATLAB Algorithm form uNTT paper
+3.Benchmarking contains the python code for benchmarking Mountain Sort, SpyKing Circus and MATLAB Algorithm form uNIT paper
 
 -matAlgorithm.py-imports and loads the file"resultFile.mat" not included here (due to size issues) from uNIT code, to benchmark it with other algorithms
          
